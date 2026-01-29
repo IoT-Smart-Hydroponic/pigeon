@@ -1,0 +1,23 @@
+{
+  "username": "Pigeon Bot",
+  "avatar_url": "https://i.imgur.com/4M34hi2.png",
+  "content": "📚 **Dokumentasi Sudah Diperbarui**\n\n@everyone",
+  "embeds": [
+    {
+      "title": "📚 Dokumentasi diperbarui di IoT Learning Hub",
+      "url": "{{ data.repository.homepage if data.repository.homepage else data.repository.html_url }}",
+      "color": 3447003,
+      "description": "Dokumentasi  **{{ data.repository.name }}**  telah diperbarui melalui workflow  **{{ data.workflow_run.name }}**.",
+      "fields": [
+        {"name": "Repo", "value": "{{ data.repository.full_name }}", "inline": true},
+        {"name": "Version", "value": "{{ 'v' ~ version }}", "inline": true},
+        {"name": "Deployer", "value": "{{ data.workflow_run.actor.login }}", "inline": true},
+        {"name": "Status", "value": "{{ '✅ Sukses' if data.workflow_run.conclusion == 'success' else '❌ Gagal' }}", "inline": true}
+      ],
+      "footer": {
+        "text": "Time: {{ data.workflow_run.updated_at | default('Unknown') }}"
+      },
+      "timestamp": "{{ data.workflow_run.updated_at | default('') }}"
+    }
+  ]
+}

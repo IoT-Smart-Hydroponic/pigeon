@@ -1,0 +1,48 @@
+{
+  "username": "Pigeon Bot",
+  "avatar_url": "https://i.imgur.com/4M34hi2.png",
+  
+  "content": "🚀 **GitHub Pull Request Notification**\nRepo: **{{ data.repository.full_name }}** | Branch: `{{ data.pull_request.head.ref }}`\n\n👇 Cek detail di bawah, gaes! @everyone",
+
+  "embeds": [
+    {
+      "title": "🚀 New Pull Request to {{ data.repository.full_name }}",
+      "url": "{{ data.pull_request.url }}",
+      "description": "Pull Request **#{{ data.number }}** has been **{{ data.action }}** by **{{ data.pull_request.user.login }}**.\n\n**Title:** {{ data.pull_request.title | replace('\"', '\\\"') }}",
+      
+      "color": 
+      {% if data.action == "opened" %}
+      3066993 {# green #}
+      {% elif data.action == "reopened" %}
+      3066993 {# green #}
+      {% elif data.action == "edited" %}
+      15105570 {# yellow #}
+      {% elif data.action == "closed" and data.pull_request.merged_at %}
+      7291585 {# purple #}
+      {% elif data.action == "closed" %}
+      9807270 {# gray #}
+      {% else %}
+      2899536 {# default color (dark gray) #}
+      {% endif %}
+      ,
+      "author": {
+        "name": "{{ data.pull_request.user.login }}",
+        "icon_url": "{{ data.pull_request.user.avatar_url }}" 
+      },
+      "fields": [
+        {"name": "Repo", "value": "{{ data.repository.full_name }}", "inline": true},
+        {"name": "Branch", "value": "{{ data.pull_request.head.ref }}", "inline": true},
+        {"name": "PR Number", "value": "#{{ data.number }}", "inline": true},
+        {"name": "PR Action", "value": "{{ data.action }}", "inline": true},
+        {"name": "Total Commits", "value": "{{ data.pull_request.commits if data.pull_request.commits else 0 }}", "inline": true},
+        {"name": "Author", "value": "{{ data.pull_request.user.login }}", "inline": true}
+      ],
+      "image": {"url": "{{ data.pull_request.user.avatar_url }}"},
+      "thumbnail": {"url": "{{ data.pull_request.user.avatar_url }}"},
+      "footer": {
+        "text": "Time: {{ data.pull_request.updated_at | default('Unknown') }}"
+      },
+      "timestamp": "{{ data.pull_request.updated_at | default('') }}"
+    }
+  ]
+}

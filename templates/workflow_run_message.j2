@@ -1,0 +1,46 @@
+{
+  "username": "Pigeon Bot",
+  "avatar_url": "https://i.imgur.com/4M34hi2.png",
+  
+  "content": "🚀 **GitHub Workflow Run Notification**\nRepo: **{{ data.repository.full_name }}** | Workflow: `{{ data.workflow_run.name }}`\n\n {{ data.workflow_run.head_commit.message | replace('\r', '') | replace('\n\n', '\n') | replace('\n', '\\n') | replace('\"', '\\\"') | truncate(1000) }}\n\n👇 Cek detail di bawah, gaes! @everyone",
+
+  "embeds": [
+    {
+      "title": "🚀 New Workflow Run in {{ data.repository.full_name }}",
+      "url": "{{ data.workflow_run.html_url }}",
+      "description": "Workflow Run **{{ data.workflow_run.name }}** has been **{{ data.workflow_run.conclusion if data.workflow_run.conclusion else data.workflow_run.status }}**.\n\n**Triggered by:** {{ data.workflow_run.triggering_actor.login }}",
+      
+      "color": 
+      {% if data.action == "completed" and data.workflow_run.conclusion == "success" %}
+      4437377 {# Neon Green #}
+      {% elif data.action == "completed" and data.workflow_run.conclusion == "failure" %}
+      15158332 {# Crimson Red #}
+      {% elif data.action == 'in_progress'%}
+      15844367 {# Kuning #}
+      {% elif data.workflow_run.conclusion == "cancelled" %}
+      9807270 {# gray #}
+      {% else %}
+      2899536 {# default color (dark gray) #}
+      {% endif %}
+      ,
+      "author": {
+        "name": "{{ data.workflow_run.triggering_actor.login }}",
+        "icon_url": "{{ data.workflow_run.triggering_actor.avatar_url }}" 
+      },
+      "fields": [
+        {"name": "Repo", "value": "{{ data.repository.full_name }}", "inline": true},
+        {"name": "Date", "value": "{{ data.workflow_run.created_at }}", "inline": true},
+        {"name": "Number", "value": "#{{ data.workflow_run.run_number }}", "inline": true},
+        {"name": "Status", "value": "{{ data.workflow_run.status }}", "inline": true},
+        {"name": "Branch", "value": "{{ data.workflow_run.head_branch }}", "inline": true},
+        {"name": "Author", "value": "{{ data.workflow_run.triggering_actor.login }}", "inline": true}
+      ],
+      "image": {"url": "{{ data.workflow_run.triggering_actor.avatar_url }}?s=512"},
+      "thumbnail": {"url": "{{ data.workflow_run.triggering_actor.avatar_url }}?s=64"},
+      "footer": {
+        "text": "Time: {{ data.workflow_run.updated_at | default('Unknown') }}"
+      },
+      "timestamp": "{{ data.workflow_run.updated_at | default('') }}"
+    }
+  ]
+}

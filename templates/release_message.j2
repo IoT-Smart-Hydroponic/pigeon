@@ -1,0 +1,48 @@
+{
+  "username": "Pigeon Bot",
+  "avatar_url": "https://i.imgur.com/4M34hi2.png",
+  
+  "content": "🚀 **GitHub Release Notification**\nRepo: **{{ data.repository.full_name }}** | Release: `{{ data.release.tag_name }}`\n\n {{ data.release.body | replace('\r', '') | replace('\n\n', '\n') | replace('\n', '\\n') | replace('\"', '\\\"') | truncate(1000) }}\n👇 Cek detail di bawah, gaes! @everyone",
+
+  "embeds": [
+    {
+      "title": "🚀 New Release in {{ data.repository.full_name }}",
+      "url": "{{ data.release.html_url }}",
+      "description": "Release **{{ data.release.tag_name }}** has been **{{ data.action }}** by **{{ data.release.author.login }}**.\n\n**Name:** {{ data.release.name | replace('\"', '\\\"') }}",
+      
+      "color": 
+      {% if data.action == "published" %}
+      15964178 {# orange #}
+      {% elif data.action == "released" %}
+      3066993 {# green #}
+      {% elif data.action == "prereleased" %}
+      15105570 {# yellow #}
+      {% elif data.action == "created" and data.release.draft %}
+      9807270 {# gray #}
+      {% elif data.action == "created" %}
+      3447003 {# blue #}
+      {% else %}
+      2899536 {# default color (dark gray) #}
+      {% endif %}
+      ,
+      "author": {
+        "name": "{{ data.release.author.login }}",
+        "icon_url": "{{ data.release.author.avatar_url }}" 
+      },
+      "fields": [
+        {"name": "Repo", "value": "{{ data.repository.full_name }}", "inline": true},
+        {"name": "Date", "value": "{{ data.release.published_at }}", "inline": true},
+        {"name": "Version", "value": "#{{ data.release.name }}", "inline": true},
+        {"name": "Action", "value": "{{ data.action }}", "inline": true},
+        {"name": "prerelease", "value": "{{ data.release.prerelease }}", "inline": true},
+        {"name": "Author", "value": "{{ data.release.author.login }}", "inline": true}
+      ],
+      "image": {"url": "{{ data.release.author.avatar_url }}"},
+      "thumbnail": {"url": "{{ data.release.author.avatar_url }}"},
+      "footer": {
+        "text": "Time: {{ data.release.updated_at | default('Unknown') }}"
+      },
+      "timestamp": "{{ data.release.published_at | default('') }}"
+    }
+  ]
+}

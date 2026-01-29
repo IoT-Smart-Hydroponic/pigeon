@@ -1,0 +1,39 @@
+{
+  "username": "Pigeon Bot",
+  "avatar_url": "https://i.imgur.com/4M34hi2.png",
+  "content": "🚀 **GitHub Push Notification**\nRepo: **{{ data.repository.full_name }}** | Branch: `{{ data.ref }}`\n\n👇 Cek detail di bawah, gaes! @everyone",
+  "embeds": [
+    {
+      "title": "🚀 New Push to {{ data.repository.full_name }}",
+      "url": "{{ data.compare }}",
+      "description": "{% if data.commits and data.commits|length > 0 %}{{ data.pusher.name }} pushed **{{ data.commits|length }}** commit(s):\n{% for commit in data.commits[:10] %}\n• [`{{ commit.id[:7] }}`]({{ commit.url }}) - {{ commit.message | replace('\"', '\\\"') | truncate(50) }} - **{{ commit.author.name }}**{% endfor %}{% if data.commits|length > 10 %}\n\n... dan {{ data.commits|length - 10 }} commit lainnya.{% endif %}{% elif data.head_commit %}**Update Reference (Tag/Merge):**\n• [`{{ data.head_commit.id[:7] }}`]({{ data.head_commit.url }}) - {{ data.head_commit.message | replace('\"', '\\\"') }}{% else %}⚠️ Branch Update (No Commit Details){% endif %}",
+      "color":
+      {% if data.deleted %}
+      9807270 {# gray #}
+      {% elif data.created %}
+      3066993 {# green #}
+      {% elif data.forced %}
+      15158332 {# red #}
+      {% else %}
+      3447003 {# blue #}
+      {% endif %}
+      ,
+      "author": {
+        "name": "{{ data.pusher.name }}",
+        "icon_url": "{{ data.sender.avatar_url }}" 
+      },
+      "fields": [
+        {"name": "Repo", "value": "{{ data.repository.full_name }}", "inline": true},
+        {"name": "Branch", "value": "{{ data.ref }}", "inline": true},
+        {"name": "Total Commits", "value": "{{ data.commits|length if data.commits else 0 }}", "inline": true},
+        {"name": "Pusher", "value": "{{ data.pusher.name }}", "inline": true}
+      ],
+      "image": {"url": " {{ data.repository.owner.avatar_url }}"},
+      "thumbnail": {"url": "{{ data.sender.avatar_url }}"},
+      "footer": {
+        "text": "Time: {{ data.head_commit.timestamp | default('Unknown') }}"
+      },
+      "timestamp": "{{ data.head_commit.timestamp | default('') }}"
+    }
+  ]
+}
