@@ -22,8 +22,15 @@ discord_notifier = DiscordNotifier()
 app = FastAPI()
 env_template = Environment(loader=FileSystemLoader("templates"))
 
+
+def resolve_path(value: str) -> Path | None:
+    if not value:
+        return None
+    return Path(value).expanduser()
+
+
 PROJECT_PATHS = {
-    "smart-hydroponic-backend": config.PATH_BACKEND_HYDROPONIC,
+    "smart-hydroponic-backend": resolve_path(config.PATH_BACKEND_HYDROPONIC),
 }
 
 
@@ -50,10 +57,10 @@ def _truncate_output(text: str, limit: int = 1800) -> str:
     return text[: limit - 50] + "\n... (truncated) ..."
 
 
-def _run_command(cmd: list[str], work_dir: str) -> str:
+def _run_command(cmd: list[str], work_dir: Path) -> str:
     result = subprocess.run(
         cmd,
-        cwd=work_dir,
+        cwd=str(work_dir),
         capture_output=True,
         text=True,
         timeout=300,
