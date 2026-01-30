@@ -3,6 +3,7 @@ from .pull_request import PullRequestSchema
 from .push import PushSchema
 from .release import ReleaseSchema
 from .workflow import WorkflowSchema
+from .docker import DockerServiceSchema
 
 __all__ = [
     "Commit",
@@ -12,4 +13,5 @@ __all__ = [
     "PushSchema",
     "ReleaseSchema",
     "WorkflowSchema",
+    "DockerServiceSchema",
 ]
