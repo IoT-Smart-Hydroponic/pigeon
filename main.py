@@ -1,4 +1,5 @@
-from typing import Any
+import time
+from typing import Any, List
 from pathlib import Path
 import subprocess
 from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
@@ -8,7 +9,13 @@ from utils.verify import verify_signature
 import logging
 import json
 import requests
-from schemas import PushSchema, PullRequestSchema, ReleaseSchema, WorkflowSchema
+from schemas import (
+    PushSchema,
+    PullRequestSchema,
+    ReleaseSchema,
+    WorkflowSchema,
+    DockerServiceSchema,
+)
 from jinja2 import Environment, FileSystemLoader
 import re
 
@@ -19,7 +26,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 discord_notifier = DiscordNotifier()
-app = FastAPI()
+app = FastAPI(root="/pigeon")
 env_template = Environment(loader=FileSystemLoader("templates"))
 
 
@@ -74,6 +81,77 @@ def _run_command(cmd: list[str], work_dir: Path) -> str:
     return combined
 
 
+def _parse_compose_services(raw: str) -> List[DockerServiceSchema]:
+    services: List[DockerServiceSchema] = []
+    for line in raw.splitlines():
+        json_start = line.find("{")
+        if json_start == -1:
+            continue
+
+        json_part = line[json_start:]
+        service_info = json.loads(json_part)
+        services.append(DockerServiceSchema(**service_info))
+
+    return services
+
+
+def _list_compose_services(work_dir: Path) -> List[DockerServiceSchema]:
+    raw = _run_command(["docker", "compose", "ps", "--format", "json"], work_dir)
+    try:
+        return _parse_compose_services(raw)
+    except json.JSONDecodeError:
+        logger.warning("Failed to parse docker compose ps JSON output")
+        raise
+
+
+def _compose_status_summary(work_dir: Path) -> List[dict[str, Any]] | str:
+    max_retries = 12
+    interval = 5
+    final_status: List[DockerServiceSchema] = []
+
+    for _ in range(max_retries):
+        try:
+            current_services = _list_compose_services(work_dir)
+        except json.JSONDecodeError:
+            raw = _run_command(["docker", "compose", "ps", "--format", "json"], work_dir)
+            return _truncate_output(raw)
+
+        pending_services = [
+            s
+            for s in current_services
+            if "starting" in s.status.lower() or "unhealthy" in s.status.lower()
+        ]
+
+        if not pending_services:
+            final_status = current_services
+            break
+
+        time.sleep(interval)
+
+    if not final_status:
+        try:
+            final_status = _list_compose_services(work_dir)
+        except json.JSONDecodeError:
+            raw = _run_command(["docker", "compose", "ps", "--format", "json"], work_dir)
+            return _truncate_output(raw)
+
+    embeds: list[dict[str, Any]] = []
+    for service in final_status:
+        embed = {
+            "title": f"🐳 Service: {service.name} | ID: {service.id}",
+            "color": service.get_color(),
+            "fields": [
+                {"name": "Status", "value": service.status, "inline": True},
+                {"name": "State", "value": service.state, "inline": True},
+                {"name": "Image", "value": service.image, "inline": False},
+                {"name": "Created", "value": service.createdAt, "inline": False},
+            ],
+        }
+        embeds.append(embed)
+
+    return embeds if embeds else "No containers reported."
+
+
 def trigger_docker_compose(
     repo_key: str, payload: Any, event: str, delivery: str
 ) -> None:
@@ -88,24 +166,29 @@ def trigger_docker_compose(
         return
 
     try:
-        pull_output = _run_command(["docker", "compose", "pull"], work_dir)
+        _run_command(["docker", "compose", "pull"], work_dir)
         up_output = _run_command(["docker", "compose", "up", "-d"], work_dir)
-        prune_output = _run_command(["docker", "image", "prune", "-f"], work_dir)
+        _run_command(["docker", "image", "prune", "-f"], work_dir)
 
-        combined = "\n".join(
-            part for part in [pull_output, up_output, prune_output] if part
-        )
-        combined = _truncate_output(combined)
+        status_output = _compose_status_summary(work_dir)
+        up_output = up_output.strip()
+
+        payload = {
+            "username": "Pigeon Bot",
+            "avatar_url": "https://raw.githubusercontent.com/IoT-Smart-Hydroponic/pigeon/refs/heads/main/assets/avatar_besar.jpg",
+            "content": (
+                f"🧰 Docker Compose Deployment Status for **{repo_name or repo_key}**:\n"
+                f"```bash\n{up_output}\n```"
+            ),
+        }
+
+        if isinstance(status_output, list):
+            payload["embeds"] = status_output
+        else:
+            payload["content"] = payload["content"] + f"\n```\n{status_output}\n```"
 
         discord_notifier.send_message(
-            {
-                "username": "Pigeon Bot",
-                "content": (
-                    f"🧰 **Deploy Result**\n"
-                    f"Repo: **{repo_name or repo_key}**\n"
-                    f"```\n{combined}\n```"
-                ),
-            },
+            payload,
             "docker_compose",
             force=True,
             track=False,
@@ -119,6 +202,7 @@ def trigger_docker_compose(
         discord_notifier.send_message(
             {
                 "username": "Pigeon Bot",
+                "avatar_url": "https://raw.githubusercontent.com/IoT-Smart-Hydroponic/pigeon/refs/heads/main/assets/avatar_besar.jpg",
                 "content": (
                     f"❌ **Deploy Failed**\n"
                     f"Repo: **{repo_name or repo_key}**\n"
@@ -135,6 +219,7 @@ def trigger_docker_compose(
         discord_notifier.send_message(
             {
                 "username": "Pigeon Bot",
+                "avatar_url": "https://raw.githubusercontent.com/IoT-Smart-Hydroponic/pigeon/refs/heads/main/assets/avatar_besar.jpg",
                 "content": (
                     f"⏱️ **Deploy Timed Out**\nRepo: **{repo_name or repo_key}**"
                 ),
@@ -359,6 +444,9 @@ async def webhook_handler(request: Request, background_tasks: BackgroundTasks):
                     # combine repo name and project type to form key
                     key = f"{repo_name}-{project_type}" if project_type else repo_name
                     if key:
+                        logger.info(
+                            f"Scheduling Docker compose trigger for repo_key='{key}'"
+                        )
                         background_tasks.add_task(
                             trigger_docker_compose,
                             key,
@@ -422,7 +510,7 @@ async def serialize_workflow(event: str):
 
 
 @app.get("/send-message/{event}")
-async def send_test_message(event: str):
+async def send_test_message(event: str, background_tasks: BackgroundTasks):
     event = event.lower().replace("-", "_")
 
     schema_map = {
@@ -543,6 +631,29 @@ async def send_test_message(event: str):
                     "action_required",
                 }:
                     discord_notifier.remove_id_file(scope_key=scope_key)
+                if model.workflow_run.conclusion == "success":
+                    workflow_path = getattr(model.workflow_run, "path", "")
+                    repo_name = getattr(model.repository, "name", "")
+
+                    # get (backend or frontend) from path using regex
+                    match = re.search(
+                        r"(backend|frontend)", workflow_path, re.IGNORECASE
+                    )
+                    project_type = match.group(1).lower() if match else ""
+
+                    # combine repo name and project type to form key
+                    key = f"{repo_name}-{project_type}" if project_type else repo_name
+                    if key:
+                        logger.info(
+                            f"Scheduling Docker compose trigger for repo_key='{key}'"
+                        )
+                        background_tasks.add_task(
+                            trigger_docker_compose,
+                            key,
+                            model,
+                            event,
+                            "Test Message",
+                        )
 
                 if (
                     model.workflow_run.name == "Deploy Docs"
