@@ -113,7 +113,9 @@ def _compose_status_summary(work_dir: Path) -> List[dict[str, Any]] | str:
         try:
             current_services = _list_compose_services(work_dir)
         except json.JSONDecodeError:
-            raw = _run_command(["docker", "compose", "ps", "--format", "json"], work_dir)
+            raw = _run_command(
+                ["docker", "compose", "ps", "--format", "json"], work_dir
+            )
             return _truncate_output(raw)
 
         pending_services = [
@@ -132,7 +134,9 @@ def _compose_status_summary(work_dir: Path) -> List[dict[str, Any]] | str:
         try:
             final_status = _list_compose_services(work_dir)
         except json.JSONDecodeError:
-            raw = _run_command(["docker", "compose", "ps", "--format", "json"], work_dir)
+            raw = _run_command(
+                ["docker", "compose", "ps", "--format", "json"], work_dir
+            )
             return _truncate_output(raw)
 
     embeds: list[dict[str, Any]] = []
@@ -454,6 +458,21 @@ async def webhook_handler(request: Request, background_tasks: BackgroundTasks):
                             event,
                             delivery,
                         )
+                if (
+                    model.workflow_run.name == "Deploy Docs"
+                    and model.workflow_run.conclusion == "success"
+                ):
+                    announce_template = env_template.get_template("announce_docs.j2")
+                    version = model.workflow_run.head_commit.message.split(" ")[-1]
+                    announce_content = announce_template.render(
+                        data=model, version=version
+                    )
+
+                    announce_payload = json.loads(announce_content)
+                    discord_notifier.send_message(
+                        announce_payload, event, scope_key=scope_key
+                    )
+
             logger.info(f"Message sent to Discord for event '{event}' successfully.")
         except requests.exceptions.RequestException as e:
             log_error("Failed to send message to Discord", event, delivery, e)
