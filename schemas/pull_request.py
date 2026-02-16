@@ -12,7 +12,7 @@ class Branch(BaseModel):
 
 
 class PullRequest(BaseModel):
-    url: HttpUrl
+    html_url: HttpUrl
     issue_url: HttpUrl
     number: int
     state: str
